@@ -7,6 +7,15 @@ Follow a path of characters & collect letters:
 - Collect letters
 - Stop when you reach the character `x`
 
+## Running this solution
+
+Run `git clone git@github.com:pozda/Pathfinder.git` inside your terminal inside the folder
+where you would like to place this repo
+
+`cd` into it and run `npm i` to install dependencies
+
+After instalation, you can run `npm run test` to run Jest tests.
+
 ## Assignment
 
 Write a piece of code that takes a map of characters as an input and outputs the collected letters and the list of characters of the travelled path.
