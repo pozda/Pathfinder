@@ -1,5 +1,18 @@
 const { Pathfinder } = require('./')
 
+const errorMessage = {
+    MISSING_START_GLYPH: 'ERROR! Glitch (missing start glyph) in the matrix!',
+    MISSING_END_GLYPH: 'ERROR! Glitch (missing end glyph) in the matrix!',
+    MISSING_UNIQUE_GLYPH: 'ERROR! Glitch (missing glyph) in the matrix! ',
+    MULTIPLE_START_GLYPHS: 'ERROR! Glitch (multiple start glyphs) in the matrix! Should have just 1 start glyph, but it has ',
+    MULTIPLE_END_GLYPHS: 'ERROR! Glitch (multiple end glyphs) in the matrix! Should have just 1 end glyph, but it has ',
+    MULTIPLE_UNIQUE_GLYPHS: 'ERROR! Glitch (multiple glyphs) in the matrix! Should have just 1 unique glyph, but it has ',
+    MISSPLACED_START_GLYPH: 'ERROR! Glitch (missplaced start glyph) in the matrix! Should be placed on either end of the path!',
+    INVALID_GLYPH: 'ERROR! Glitch (invalid glyph) in the matrix!',
+    FORK: 'ERROR! Glitch (fork) in the matrix!',
+    FAKE_TURN: 'ERROR! Glitch (fake turn) in the matrix!',
+    BROKEN_PATH: 'ERROR! Glitch (broken path) in the matrix!'
+}
 test('Basic example', () => {
     const testMatrix01 = [
         ['@', '-', '-', '-', 'A', '-', '-', '-', '+'],
@@ -102,6 +115,7 @@ test('Illegal glyphs in the matrix', () => {
 
     const pathfinder = new Pathfinder(testMatrix07)
     const result = pathfinder.findPath()
+
     expect(result instanceof Error).toBe(true)
 })
 
@@ -116,6 +130,7 @@ test('Missing start glyph', () => {
     const pathfinder = new Pathfinder(testMatrix08)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MISSING_START_GLYPH)
 })
 
 test('Missing end glyph', () => {
@@ -129,6 +144,7 @@ test('Missing end glyph', () => {
     const pathfinder = new Pathfinder(testMatrix09)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MISSING_END_GLYPH)
 })
 
 test('Multiple start glyphs', () => {
@@ -143,6 +159,7 @@ test('Multiple start glyphs', () => {
     const pathfinder = new Pathfinder(testMatrix10)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MULTIPLE_START_GLYPHS + '2!')
 })
 
 test('Multiple end glyphs', () => {
@@ -157,6 +174,7 @@ test('Multiple end glyphs', () => {
     const pathfinder = new Pathfinder(testMatrix11)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MULTIPLE_END_GLYPHS+ '2!')
 })
 
 test('Broken path with multiple start glyphs', () => {
@@ -171,7 +189,7 @@ test('Broken path with multiple start glyphs', () => {
     const pathfinder = new Pathfinder(testMatrix12)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
-   // expect(result.message).toBe('ERROR! Glitch (missing end glyph) in the matrix!')
+    expect(result.message).toBe(errorMessage.MULTIPLE_START_GLYPHS + '2!')
 })
 
 test('Broken path', () => {
@@ -186,6 +204,7 @@ test('Broken path', () => {
     const pathfinder = new Pathfinder(testMatrix13)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.BROKEN_PATH)
 })
 
 test('Double paths, double everything', () => {
@@ -200,6 +219,7 @@ test('Double paths, double everything', () => {
     const pathfinder = new Pathfinder(testMatrix14)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MULTIPLE_START_GLYPHS + '2!')
 })
 
 test('Double paths, single start and end glyph', () => {
@@ -214,6 +234,7 @@ test('Double paths, single start and end glyph', () => {
     const pathfinder = new Pathfinder(testMatrix15)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.BROKEN_PATH)
 })
 
 test('Fork and two end glyphs', () => {
@@ -230,6 +251,7 @@ test('Fork and two end glyphs', () => {
     const pathfinder = new Pathfinder(testMatrix16)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MULTIPLE_END_GLYPHS + '2!')
 })
 
 test('Fork and open ended second path', () => {
@@ -246,6 +268,7 @@ test('Fork and open ended second path', () => {
     const pathfinder = new Pathfinder(testMatrix17)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.FORK)
 })
 
 test('Broken path', () => {
@@ -259,6 +282,7 @@ test('Broken path', () => {
     const pathfinder = new Pathfinder(testMatrix18)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.BROKEN_PATH)
 })
 
 test('Start glyph in the middle and two end glyphs', () => {
@@ -269,6 +293,7 @@ test('Start glyph in the middle and two end glyphs', () => {
     const pathfinder = new Pathfinder(testMatrix19)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MULTIPLE_END_GLYPHS + '2!')
 })
 
 
@@ -280,6 +305,7 @@ test('Start glyph in the middle', () => {
     const pathfinder = new Pathfinder(testMatrix20)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.MISSPLACED_START_GLYPH)
 })
 
 test('Fake turn', () => {
@@ -290,4 +316,5 @@ test('Fake turn', () => {
     const pathfinder = new Pathfinder(testMatrix21)
     const result = pathfinder.findPath()
     expect(result instanceof Error).toBe(true)
+    expect(result.message).toBe(errorMessage.FAKE_TURN)
 })
