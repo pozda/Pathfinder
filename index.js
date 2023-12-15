@@ -22,8 +22,8 @@ const errorMessage = {
     MULTIPLE_START_GLYPHS: 'ERROR! Glitch (multiple start glyphs) in the matrix! Should have just 1 start glyph, but it has ',
     MULTIPLE_END_GLYPHS: 'ERROR! Glitch (multiple end glyphs) in the matrix! Should have just 1 end glyph, but it has ',
     MULTIPLE_UNIQUE_GLYPHS: 'ERROR! Glitch (multiple glyphs) in the matrix! Should have just 1 unique glyph, but it has ',
+    MISSPLACED_START_GLYPH: 'ERROR! Glitch (missplaced start glyph) in the matrix! Should be placed on either end of the path!',
     INVALID_GLYPH: 'ERROR! Glitch (invalid glyph) in the matrix!',
-    MULTIPLE_PATHS: 'ERROR! Glitch (multiple paths) in the matrix!',
     FORK: 'ERROR! Glitch (fork) in the matrix!',
     FAKE_TURN: 'ERROR! Glitch (fake turn) in the matrix!',
     BROKEN_PATH: 'ERROR! Glitch (broken path) in the matrix!'
@@ -35,23 +35,23 @@ class Pathfinder {
         this.validLetters = /^[A-Z]{1}$/
         this.validGlyphs = /(^[A-Z@x|+-]{1}$)/
         this.validMatrixFieldValues = /^[A-Z@x|+-\s]{1}$/
-        this.startPosition = this.findStartAndFinishPosition(this.matrix, glyphs.START)
-        this.endPosition = this.findStartAndFinishPosition(this.matrix, glyphs.END)
+        this.startPosition = null
+        this.endPosition = null
         this.currentGlyph = glyphs.NONE
         this.currentDirection = directions.NONE
-        this.currentPosition = this.startPosition
+        this.currentPosition = null
         this.path = []
         this.letterCoordinates = []
     }
-
-    //some helper methods
+    
+    // utility methods
     isValidLetter = (glyph) => this.validLetters.test(glyph)
     isValidGlyph = (glyph) => this.validGlyphs.test(glyph)
     isValidMatrixFieldValue = (glyph) => this.validMatrixFieldValues.test(glyph)
-    compareArrays = (arrayOne, arrayTwo) => JSON.stringify(arrayOne) === JSON.stringify(arrayTwo)
-
+   
     // methods
-    findStartAndFinishPosition(array, glyph) {
+    findStartEndPosition(array, glyph) {
+        // can be used to check if there is just one instance of glyph present in the matrix
         const rowResults = [] 
         const position = []
 
@@ -59,9 +59,13 @@ class Pathfinder {
             for(let i = 0; i<array.length; i++){
                 const rowResult = array[i].filter(g => g === glyph)
                 rowResults.push(rowResult.length)
+
+                //if found, push the coordinates(position)
                 if (rowResult.length === 1){
                     position.push(i, array[i].indexOf(glyph))
+
                 } else if (rowResult > 1) {
+                    // if there is multiple instances of glyph in the row, throw appropriate error
                     if(glyph === glyphs.START){
                         throw new Error(errorMessage.MULTIPLE_START_GLYPHS + `${numberOfGlyphs}!`)
                     } else if(glyph === glyphs.END){
@@ -74,33 +78,37 @@ class Pathfinder {
         } else {
             throw new Error(errorMessage.INVALID_GLYPH)
         }
+
+        // sum up rows
         const numberOfGlyphs = rowResults.reduce(
             (acc, currentValue) => acc + currentValue, 0
         )
-
-        if(numberOfGlyphs === 1){
+        
+        // there can be only one
+        if(numberOfGlyphs === 1) {
             return position
-        } else if(numberOfGlyphs === 0){
-            if(glyph === glyphs.START){
-                throw new Error(errorMessage.MISSING_START_GLYPH)
-            } else if(glyph === glyphs.END){
-                throw new Error(errorMessage.MISSING_END_GLYPH)
-            } else {
-                throw new Error(errorMessage.MISSING_UNIQUE_GLYPH + `You have been looking for ${glyph}!`)
-            }
+
         } else {
+
             if(glyph === glyphs.START){
-                throw new Error(errorMessage.MULTIPLE_START_GLYPHS + `${numberOfGlyphs}!`)
+                throw numberOfGlyphs === 0 
+                    ? new Error(errorMessage.MISSING_START_GLYPH)
+                    : new Error(errorMessage.MULTIPLE_START_GLYPHS + `${numberOfGlyphs}!`)
+
             } else if(glyph === glyphs.END){
-                throw new Error(errorMessage.MULTIPLE_END_GLYPHS + `${numberOfGlyphs}!`)
+                throw numberOfGlyphs === 0 
+                    ? new Error(errorMessage.MISSING_END_GLYPH)
+                    : new Error(errorMessage.MULTIPLE_END_GLYPHS + `${numberOfGlyphs}!`)
+
             } else {
-                throw new Error(errorMessage.MULTIPLE_UNIQUE_GLYPHS + `${numberOfGlyphs}!`)
+                throw numberOfGlyphs === 0 
+                    ? new Error(errorMessage.MISSING_UNIQUE_GLYPH + `You have been looking for ${glyph}!`)
+                    : new Error(errorMessage.MULTIPLE_UNIQUE_GLYPHS + `${numberOfGlyphs}!`)
             }
         }
     }
-
     getNewPositionData(direction) { 
-        //returns new position data, other method decides which data it will use 
+
         switch(direction) {
         case directions.UP:
             return ({
@@ -108,18 +116,21 @@ class Pathfinder {
                 direction: directions.UP,
                 glyph: this.matrix[this.currentPosition[0] - 1][this.currentPosition[1]]
             })
+
         case directions.RIGHT:
             return ({
                 position: [this.currentPosition[0], this.currentPosition[1] + 1],
                 direction: directions.RIGHT,
                 glyph: this.matrix[this.currentPosition[0]][this.currentPosition[1] + 1]
             })
+
         case directions.DOWN:
             return ({
                 position: [this.currentPosition[0] + 1, this.currentPosition[1]],
                 direction: directions.DOWN,
                 glyph: this.matrix[this.currentPosition[0] + 1][this.currentPosition[1]]
             })
+
         case directions.LEFT:
             return ({
                 position: [this.currentPosition[0], this.currentPosition[1] - 1],
@@ -127,316 +138,177 @@ class Pathfinder {
                 glyph: this.matrix[this.currentPosition[0]][this.currentPosition[1] - 1]
             })
         }
-    }
-
-    updateVariables(position){
-        this.currentPosition = position
-        this.path.push(position)
-        this.currentGlyph = this.matrix[position[0]][position[1]]
-        
-        if(this.isValidLetter(this.currentGlyph)){
-            this.letterCoordinates.push(position)
+    }    
+    isPathBroken(direction){
+        // only direction pathfinder can go if the path is broken is back
+        // checking accordingly
+        switch(this.currentDirection) {
+        case directions.UP:
+            return direction === directions.DOWN
+        case directions.DOWN:
+            return direction === directions.UP
+        case directions.RIGHT:
+            return direction === directions.LEFT
+        case directions.LEFT:
+            return direction === directions.RIGHT
         }
     }
-
-    setDirection() {
-        const glyphsCollected = []
-        const directionChanges = []
-        const directionObjects = []
-
-        if (this.currentPosition[0] !== 0) { //all but first row
-            const glyphUp = this.getNewPositionData(directions.UP)
-            directionObjects.push(glyphUp)
-            if(this.currentDirection !== directions.DOWN){
-                if(this.isValidGlyph(glyphUp.glyph)) {
-                    glyphsCollected.push(glyphUp.glyph)
-                    directionChanges.push(directions.UP)
-                    this.currentDirection = directions.UP
-                }
-            }
-        }  
-        if(this.currentPosition[0] !== this.matrix.length-1) { //all but last row
-            const glyphDown = this.getNewPositionData(directions.DOWN)
-            directionObjects.push(glyphDown)
-            if(this.currentDirection !== directions.UP) {
-                if(this.isValidGlyph(glyphDown.glyph)) {
-                    glyphsCollected.push(glyphDown.glyph)
-                    directionChanges.push(directions.DOWN)
-                    this.currentDirection = directions.DOWN
-                }
-            }
-        }
-        if(this.currentPosition[1] !== this.matrix[this.currentPosition[0]].length-1) { // all but last column) 
-            const glyphRight = this.getNewPositionData(directions.RIGHT)
-            directionObjects.push(glyphRight)
-            if(this.currentDirection !== directions.LEFT) {
-                if(this.isValidGlyph(glyphRight.glyph)) {
-                    glyphsCollected.push(glyphRight.glyph)
-                    directionChanges.push(directions.RIGHT)
-                    this.currentDirection = directions.RIGHT
-                }
-            }
-        }
-        if (this.currentPosition[1] !== 0) { //all but first column
-            const glyphLeft = this.getNewPositionData(directions.LEFT)
-            directionObjects.push(glyphLeft)
-            if(this.currentDirection !== directions.RIGHT) {
-                if(this.isValidGlyph(glyphLeft.glyph)) {
-                    glyphsCollected.push(glyphLeft.glyph)
-                    directionChanges.push(directions.LEFT)
-                    this.currentDirection = directions.LEFT
-                }
-            }
-        }
-
-
-        if(directionChanges.length === 1){
-            this.currentDirection = directionChanges[0]
-            // will need to double check for fake turns or such
-            return this.currentDirection
-        } else if(directionChanges.length === 2) {
-            const newDirection = directionObjects.filter(obj => obj.direction !== this.currentDirection)
-            this.currentDirection = newDirection[0].direction
-            return this.currentDirection
-        } else if(directionChanges.length > 2) {
-            return this.currentDirection
-        }       
-
+    removeUnnecessaryDirectionsOnTurns(directionsData) {
+        const newDirectionsData = []
     
-    }
+        switch(this.currentDirection) {
+        case directions.UP:
+        case directions.DOWN:
+            newDirectionsData.push(...directionsData.filter(obj => obj.direction !== directions.UP && obj.direction !== directions.DOWN))
+            return newDirectionsData
 
-    getResult(){
+        case directions.RIGHT:
+        case directions.LEFT:
+            newDirectionsData.push(...directionsData.filter(obj => obj.direction !== directions.RIGHT && obj.direction !== directions.LEFT))
+            return newDirectionsData
+        }
+    }
+    setDirection() {
+        const directionsData = []
+
+        if (this.currentPosition[0] !== 0) {
+            const glyphUp = this.getNewPositionData(directions.UP)
+            this.isValidGlyph(glyphUp.glyph) && directionsData.push(glyphUp)
+        }
+
+        if(this.currentPosition[0] !== this.matrix.length-1) {
+            const glyphDown = this.getNewPositionData(directions.DOWN)
+            this.isValidGlyph(glyphDown.glyph) && directionsData.push(glyphDown)
+        }
+
+        if(this.currentPosition[1] !== this.matrix[this.currentPosition[0]].length-1) {
+            const glyphRight = this.getNewPositionData(directions.RIGHT)
+            this.isValidGlyph(glyphRight.glyph) && directionsData.push(glyphRight)
+        }
+
+        if (this.currentPosition[1] !== 0) {
+            const glyphLeft = this.getNewPositionData(directions.LEFT)
+            this.isValidGlyph(glyphLeft.glyph) && directionsData.push(glyphLeft)
+        }
+
+        if(directionsData.length === 1) {
+
+            if (this.currentDirection !== directions.NONE ) {
+
+                if(this.isPathBroken(directionsData[0].direction)) {
+                    throw new Error(errorMessage.BROKEN_PATH)
+                }
+            }
+
+            this.currentDirection = directionsData[0].direction
+            return this.currentDirection
+
+        } else if (directionsData.length > 1 && this.currentGlyph !== glyphs.TURN) {
+
+            if(this.currentGlyph === glyphs.START){
+                throw new Error(errorMessage.MISSPLACED_START_GLYPH)
+            }
+
+            const isSameDirectionAvailable = directionsData.some(obj => obj.direction === this.currentDirection)
+
+            if (isSameDirectionAvailable) {
+                return this.currentDirection
+            } else {
+                const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData)
+                this.currentDirection = newDirectionData[0].direction
+                return this.currentDirection
+            }
+
+        } else if (this.currentGlyph === glyphs.TURN) {
+
+            const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData)
+
+            if (newDirectionData.length > 1){
+                throw new Error(errorMessage.FORK)
+            } else if (newDirectionData.length === 0){ 
+                throw new Error(errorMessage.FAKE_TURN)
+            } else {
+                this.currentDirection = newDirectionData[0].direction
+                return this.currentDirection
+            }
+        }
+    }
+    getResult() {
         const finishedPath = this.path
         let path = []
+
         for(let i = 0; i < finishedPath.length; i++){
             path.push(this.matrix[finishedPath[i][0]][finishedPath[i][1]])
         }
-        const letterArr = Array.from(new Set(this.letterCoordinates.map(JSON.stringify)), JSON.parse)
+
+        const letters = Array.from(new Set(this.letterCoordinates.map(JSON.stringify)), JSON.parse)
         let word = []
-        for(let i = 0; i < letterArr.length; i++){
-            word.push(this.matrix[letterArr[i][0]][letterArr[i][1]])
+        
+        for(let i = 0; i < letters.length; i++){
+            word.push(this.matrix[letters[i][0]][letters[i][1]])
         }
+        
         path = path.join('')
         word = word.join('')
+        
         console.log({path, word})
         return {path, word}
     }
+    getNextPosition() {
+        
+        /** more readable alternative
+        
+        const newDirection = this.setDirection()
+        const newPositionData = this.getNewPositionData(newDirection)
+        const { position } = newPositionData
+        return position
+        
+        */
 
+        return this.getNewPositionData(this.setDirection()).position
+    }
+    updateVariables(position) {
+
+        const glyph = this.matrix[position[0]][position[1]]
+
+        if(this.isValidGlyph(glyph)) {
+            this.currentGlyph = glyph
+            this.currentPosition = position
+            this.path.push(position)
+        
+            if(this.isValidLetter(glyph)) {
+                this.letterCoordinates.push(position)
+            }
+
+        } else {
+            throw new Error(errorMessage.INVALID_GLYPH)
+        }
+    }
     walk(position) {
         this.updateVariables(position)
-
-        if(this.currentGlyph === glyphs.START){
-            const firstDirection = this.setDirection()
-            const newPosition = this.getNewPositionData(firstDirection)
-            return this.walk(newPosition.position)
-        }
-
-        if(this.isValidLetter(this.currentGlyph)){
-            const newDirection = this.setDirection()
-            const newPosition = this.getNewPositionData(newDirection)
-            return this.walk(newPosition.position)
-        }
-
-        if(this.currentGlyph === glyphs.TURN){
-            const newDirection = this.setDirection()
-            const newPosition = this.getNewPositionData(newDirection)
-            return this.walk(newPosition.position)
-        }
 
         if(this.currentGlyph === glyphs.END){
             return this.getResult()
         }
         
-        const newPosition = this.getNewPositionData(this.currentDirection)
-        return this.walk(newPosition.position)
+        return this.walk(this.getNextPosition())
     }
-
     findPath() {
         try {
+            this.startPosition = this.findStartEndPosition(this.matrix, glyphs.START)
+            // endPosition is just here to test if there is only one end glyph
+            this.endPosition = this.findStartEndPosition(this.matrix, glyphs.END)
+
             return this.walk(this.startPosition)
         } catch (error) {
-            console.log(error)
+            
+            // to show the messages on console while testing
+            console.log(error.message)
+            return error
         }
     }
 }
 
-//matrices
-const matrix1 = [
-    ['@', '-', '-', '-', 'A', '-', '-', '-', '+'],
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'],
-    ['x', '-', 'B', '-', '+', ' ', ' ', ' ', 'C'],
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', '|'],
-    [' ', ' ', ' ', ' ', '+', '-', '-', '-', '+']
-] //pass
-const matrix2 = [
-    [' ', ' ', '@'], 
-    [' ', ' ', '|', ' ', '+', '-', 'C', '-', '-', '+'], 
-    [' ', ' ', 'A', ' ', '|', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', '+', '-', '-', '-', 'B', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', ' ', ' ', ' ', 'x'], 
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '+', '-', '-', '-', 'D', '-', '-', '+']
-] //pass
-const matrix3 = [
-    ['@', '-', '-', '-', 'A', '-', '-', '-', '+'],
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    ['x', '-', 'B', '-', '+', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '+', '-', '-', '-', 'C']
-] //pass
-const matrix4 = [
-    [' ', ' ', ' ', ' ', ' ', '+', '-', 'O', '-', 'N', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', '+', '-', 'I', '-', '+'], 
-    [' ', '@', '-', 'G', '-', 'O', '-', '+', ' ', '|', ' ', '|', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', '|', ' ', '|', ' ', '+', '-', '+', ' ', 'E'], 
-    [' ', ' ', ' ', ' ', ' ', '+', '-', '+', ' ', ' ', ' ', ' ', ' ', 'S'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'x']
-] //pass
-const matrix5 = [
-    [' ', '+', '-', 'L', '-', '+'], 
-    [' ', '|', ' ', ' ', '+', 'A', '-', '+'],
-    ['@', 'B', '+', ' ', '+', '+', ' ', 'H'], 
-    [' ', '+', '+', ' ', ' ', ' ', ' ', 'x']
-] //pass
-const matrix6 = [
-    ['@', '-', 'A', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', '+', '-', 'B', '-', '-', 'x', '-', 'C', '-', '-', 'D']
-] // pass
-//invalid matrices that should produce errors
-const matrix7 =[
-    [' ', ' ', ' ', '-', 'A', '-', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    ['x', '-', 'B', '-', '+', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '+', '-', '-', '-', '+']
-] // pass
-const matrix8 =
-[
-    ['@', '-', '-', 'A', '-', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', 'B', '-', '+', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', '|', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', '+', '-', '-', '-', '+']
-] // pass
-const matrix9 = 
-[
-    [' ', '@', '-', '-', 'A', '-', '@', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    ['x', '-', 'B', '-', '+', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', ' ', '|', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '+', '-', '-', '-', '+']
-] // pass
-const matrixa =
-[
-    ['@', '-', '-', 'A', '-', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'x'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', '@', '-', 'B', '-', '+']
-] // pass, becase it errors on double starting character
-const matrixab =
-[
-    ['@', '-', '-', 'A', '-', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'x'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', '-', 'B', '-', '+']
-] // pass, becase it errors on double starting character, fails if just 1
-const matrixb =
-[
-    [' ', '@', '-', '-', 'A', '-', '-', 'x'], 
-    [' '], 
-    ['x', '-', 'B', '-', '+'], 
-    [' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', ' ', '@']
-] // pass because double starting and ending characters, but also when because of broken link
-const matrixc =
-[
-    [' ', ' ', ' ', ' ', ' ', 'x', '-', 'B'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    ['@', '-', '-', 'A', '-', '-', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', ' ', ' ', '|'], 
-    [' ', ' ', 'x', '+', ' ', ' ', ' ', 'C'], 
-    [' ', ' ', ' ', '|', ' ', ' ', ' ', '|'], 
-    [' ', ' ', ' ', '+', '-', '-', '-', '+']
-] // pass because double ending characters, but also pass if just one ending character
-const matrixd =
-[
-    ['@', '-', '-', 'A', '-', '+'], 
-    [' ', ' ', ' ', ' ', ' ', '|'], 
-    [' '], 
-    [' ', ' ', ' ', ' ', ' ', 'B', '-', 'x']
-] // pass
-const matrixe = 
-[
-    ['x', '-', 'B', '-', '@', '-', 'A', '-', 'x']
-] // pass
-const matrixf = 
-[
-    ['@', '-', 'A', '-', '+', '-', 'B', '-', 'x']
-] // pass
-const matrixg = [
-    [' ','x','-','+'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','A'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','J'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','+'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','@'],
-] // pass
-const matrixTest = [
-    [' ', '@', '-', '-', '+'],
-    [' ', ' ', ' ', ' ', '|', ' ', 'x', '+'],
-    [' ', ' ', ' ', ' ', 'A', '-', 'B', '-'],
-]
-const matrixTest2 = [
-    [' ','x','-','+'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','A'],
-    [' ',' ',' ','|'],
-    [' ',' ',' ','|'],
-    ['+','-','-','J'],
-    ['|',' ',' ',' '],
-    ['|',' ',' ',' '],
-    ['+','-','-','@'],
-] //pass
-
-try {
-    const pathfinder = new Pathfinder( matrix2 )
-    const findPath = pathfinder.findPath()
-} catch (error) {
-    console.log(error)
+module.exports = {
+    Pathfinder
 }
-
-
-/**
- * fails
- * mtx2
- * mtx4
- * mtx5
- * mtxab - broken path - need to check this one, it fails
- * mtxc2 - should try to invalidate fork situation if evereything else is ok
- * mtxd - broken path, goes through
- * mtxf - fake turn
- */
-
-
-
-
-// /** matrices that should Error/FAIL
-//  * mtx7: no start character
-//  * mtx8: no end character
-//  * mtx9: 2 start characters
-//  * mtxa: broken path
-//  * mtxab: broken path - need to check this one, it fails
-//  * mtxb: 2 paths - double start and end characters
-//  * mtxc: Fork and two ends
-//  * mtxd: broken path - it powers through, should fail
-//  * mtxe: 2 end characters, start character in the middle
-//  * mtxf: fake TURN, goes through, need to add this one
-//  */
