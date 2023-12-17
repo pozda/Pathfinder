@@ -21,7 +21,7 @@ const errorMessage = {
     MISSING_UNIQUE_GLYPH: 'ERROR! Glitch (missing glyph) in the matrix! ',
     MULTIPLE_START_GLYPHS: 'ERROR! Glitch (multiple start glyphs) in the matrix! Should have just 1 start glyph, but it has ',
     MULTIPLE_END_GLYPHS: 'ERROR! Glitch (multiple end glyphs) in the matrix! Should have just 1 end glyph, but it has ',
-    MULTIPLE_UNIQUE_GLYPHS: 'ERROR! Glitch (multiple glyphs) in the matrix! Should have just 1 unique glyph, but it has ',
+    MULTIPLE_UNIQUE_GLYPHS: 'ERROR! Glitch (multiple unique glyphs) in the matrix! Should have just 1 unique glyph, but it has ',
     MISSPLACED_START_GLYPH: 'ERROR! Glitch (missplaced start glyph) in the matrix! Should be placed on either end of the path!',
     INVALID_GLYPH: 'ERROR! Glitch (invalid glyph) in the matrix!',
     FORK: 'ERROR! Glitch (fork) in the matrix!',
@@ -40,7 +40,7 @@ class Pathfinder {
         this.currentGlyph = glyphs.NONE
         this.currentDirection = directions.NONE
         this.currentPosition = null
-        this.path = []
+        this.pathCoordinates = []
         this.letterCoordinates = []
     }
     
@@ -107,42 +107,42 @@ class Pathfinder {
             }
         }
     }
-    getNewPositionData(direction) { 
+    getNewPositionData(direction, currentPosition) { 
 
         switch(direction) {
         case directions.UP:
             return ({
-                position: [this.currentPosition[0] - 1, this.currentPosition[1]],
+                position: [currentPosition[0] - 1, currentPosition[1]],
                 direction: directions.UP,
-                glyph: this.matrix[this.currentPosition[0] - 1][this.currentPosition[1]]
+                glyph: this.matrix[currentPosition[0] - 1][currentPosition[1]]
             })
 
         case directions.RIGHT:
             return ({
-                position: [this.currentPosition[0], this.currentPosition[1] + 1],
+                position: [currentPosition[0], currentPosition[1] + 1],
                 direction: directions.RIGHT,
-                glyph: this.matrix[this.currentPosition[0]][this.currentPosition[1] + 1]
+                glyph: this.matrix[currentPosition[0]][currentPosition[1] + 1]
             })
 
         case directions.DOWN:
             return ({
-                position: [this.currentPosition[0] + 1, this.currentPosition[1]],
+                position: [currentPosition[0] + 1, currentPosition[1]],
                 direction: directions.DOWN,
-                glyph: this.matrix[this.currentPosition[0] + 1][this.currentPosition[1]]
+                glyph: this.matrix[currentPosition[0] + 1][currentPosition[1]]
             })
 
         case directions.LEFT:
             return ({
-                position: [this.currentPosition[0], this.currentPosition[1] - 1],
+                position: [currentPosition[0], currentPosition[1] - 1],
                 direction: directions.LEFT,
-                glyph: this.matrix[this.currentPosition[0]][this.currentPosition[1] - 1]
+                glyph: this.matrix[currentPosition[0]][currentPosition[1] - 1]
             })
         }
     }    
-    isPathBroken(direction){
+    isPathBroken(direction, currentDirection){
         // only direction pathfinder can go if the path is broken is back
         // checking accordingly
-        switch(this.currentDirection) {
+        switch(currentDirection) {
         case directions.UP:
             return direction === directions.DOWN
         case directions.DOWN:
@@ -153,10 +153,10 @@ class Pathfinder {
             return direction === directions.RIGHT
         }
     }
-    removeUnnecessaryDirectionsOnTurns(directionsData) {
+    removeUnnecessaryDirectionsOnTurns(directionsData, currentDirection) {
         const newDirectionsData = []
     
-        switch(this.currentDirection) {
+        switch(currentDirection) {
         case directions.UP:
         case directions.DOWN:
             newDirectionsData.push(...directionsData.filter(obj => obj.direction !== directions.UP && obj.direction !== directions.DOWN))
@@ -168,34 +168,34 @@ class Pathfinder {
             return newDirectionsData
         }
     }
-    setDirection() {
+    setDirection(currentPosition, currentDirection) {
         const directionsData = []
 
-        if (this.currentPosition[0] !== 0) {
-            const glyphUp = this.getNewPositionData(directions.UP)
+        if (currentPosition[0] !== 0) {
+            const glyphUp = this.getNewPositionData(directions.UP, currentPosition)
             this.isValidGlyph(glyphUp.glyph) && directionsData.push(glyphUp)
         }
 
-        if(this.currentPosition[0] !== this.matrix.length-1) {
-            const glyphDown = this.getNewPositionData(directions.DOWN)
+        if(currentPosition[0] !== this.matrix.length-1) {
+            const glyphDown = this.getNewPositionData(directions.DOWN, currentPosition)
             this.isValidGlyph(glyphDown.glyph) && directionsData.push(glyphDown)
         }
 
-        if(this.currentPosition[1] !== this.matrix[this.currentPosition[0]].length-1) {
-            const glyphRight = this.getNewPositionData(directions.RIGHT)
+        if(currentPosition[1] !== this.matrix[currentPosition[0]].length-1) {
+            const glyphRight = this.getNewPositionData(directions.RIGHT, currentPosition)
             this.isValidGlyph(glyphRight.glyph) && directionsData.push(glyphRight)
         }
 
-        if (this.currentPosition[1] !== 0) {
-            const glyphLeft = this.getNewPositionData(directions.LEFT)
+        if (currentPosition[1] !== 0) {
+            const glyphLeft = this.getNewPositionData(directions.LEFT, currentPosition)
             this.isValidGlyph(glyphLeft.glyph) && directionsData.push(glyphLeft)
         }
 
         if(directionsData.length === 1) {
 
-            if (this.currentDirection !== directions.NONE ) {
+            if (currentDirection !== directions.NONE ) {
 
-                if(this.isPathBroken(directionsData[0].direction)) {
+                if(this.isPathBroken(directionsData[0].direction, currentDirection)) {
                     throw new Error(errorMessage.BROKEN_PATH)
                 }
             }
@@ -209,19 +209,19 @@ class Pathfinder {
                 throw new Error(errorMessage.MISSPLACED_START_GLYPH)
             }
 
-            const isSameDirectionAvailable = directionsData.some(obj => obj.direction === this.currentDirection)
+            const isSameDirectionAvailable = directionsData.some(obj => obj.direction === currentDirection)
 
             if (isSameDirectionAvailable) {
                 return this.currentDirection
             } else {
-                const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData)
+                const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData, currentDirection)
                 this.currentDirection = newDirectionData[0].direction
                 return this.currentDirection
             }
 
         } else if (this.currentGlyph === glyphs.TURN) {
 
-            const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData)
+            const newDirectionData = this.removeUnnecessaryDirectionsOnTurns(directionsData, currentDirection)
 
             if (newDirectionData.length > 1){
                 throw new Error(errorMessage.FORK)
@@ -233,39 +233,28 @@ class Pathfinder {
             }
         }
     }
-    getResult() {
-        const finishedPath = this.path
+    getResult(pathCoordinates, letterCoordinates) {
         let path = []
 
-        for(let i = 0; i < finishedPath.length; i++){
-            path.push(this.matrix[finishedPath[i][0]][finishedPath[i][1]])
+        for(let i = 0; i < pathCoordinates.length; i++){
+            path.push(this.matrix[pathCoordinates[i][0]][pathCoordinates[i][1]])
         }
 
-        const letters = Array.from(new Set(this.letterCoordinates.map(JSON.stringify)), JSON.parse)
+        const letters = Array.from(new Set(letterCoordinates.map(JSON.stringify)), JSON.parse)
         let word = []
         
         for(let i = 0; i < letters.length; i++){
             word.push(this.matrix[letters[i][0]][letters[i][1]])
         }
-        
         path = path.join('')
         word = word.join('')
-        
-        console.log({path, word})
         return {path, word}
     }
-    getNextPosition() {
-        
-        /** more readable alternative
-        
-        const newDirection = this.setDirection()
-        const newPositionData = this.getNewPositionData(newDirection)
+    getNextPosition(currentPosition, currentDirection) {
+        const newDirection = this.setDirection(currentPosition, currentDirection)
+        const newPositionData = this.getNewPositionData(newDirection, currentPosition)
         const { position } = newPositionData
         return position
-        
-        */
-
-        return this.getNewPositionData(this.setDirection()).position
     }
     updateVariables(position) {
 
@@ -274,7 +263,7 @@ class Pathfinder {
         if(this.isValidGlyph(glyph)) {
             this.currentGlyph = glyph
             this.currentPosition = position
-            this.path.push(position)
+            this.pathCoordinates.push(position)
         
             if(this.isValidLetter(glyph)) {
                 this.letterCoordinates.push(position)
@@ -288,10 +277,11 @@ class Pathfinder {
         this.updateVariables(position)
 
         if(this.currentGlyph === glyphs.END){
-            return this.getResult()
+            return this.getResult(this.pathCoordinates, this.letterCoordinates)
         }
-        
-        return this.walk(this.getNextPosition())
+
+        const nextPosition = this.getNextPosition(this.currentPosition, this.currentDirection)
+        return this.walk(nextPosition)
     }
     findPath() {
         try {
